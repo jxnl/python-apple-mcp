@@ -1,5 +1,7 @@
 # Python Apple MCP (Model Context Protocol)
 
+[![smithery badge](https://smithery.ai/badge/@jxnl/python-apple-mcp)](https://smithery.ai/server/@jxnl/python-apple-mcp)
+
 A Python implementation of the server that handles interactions with macOS applications such as Contacts, Notes, Mail, Messages, Reminders, Calendar, and Maps using FastMCP.
 
 ## Features
@@ -22,6 +24,16 @@ A Python implementation of the server that handles interactions with macOS appli
 - Maps
 
 ## Installation
+
+### Installing via Smithery
+
+To install Python Apple MCP for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@jxnl/python-apple-mcp):
+
+```bash
+npx -y @smithery/cli install @jxnl/python-apple-mcp --client claude
+```
+
+### Installing via Git
 
 1. Clone the repository:
 ```bash
