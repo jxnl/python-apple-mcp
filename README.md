@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jxnl-python-apple-mcp-badge.png)](https://mseep.ai/app/jxnl-python-apple-mcp)
+
 # Python Apple MCP (Model Context Protocol)
 
 A Python implementation of the server that handles interactions with macOS applications such as Contacts, Notes, Mail, Messages, Reminders, Calendar, and Maps using FastMCP.
