@@ -4,8 +4,9 @@ import logging
 from typing import Dict, List, Any, Optional
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     parse_applescript_record,
     parse_applescript_list
 )
@@ -37,9 +38,10 @@ class ContactsModule:
     
     async def find_number(self, name: str) -> List[str]:
         """Find phone numbers for a contact"""
+        safe_name = escape_string(name)
         script = f'''
             tell application "Contacts"
-                set matchingPeople to (every person whose name contains "{name}")
+                set matchingPeople to (every person whose name contains "{safe_name}")
                 set phoneNumbers to {{}}
                 repeat with p in matchingPeople
                     repeat with ph in phones of p
@@ -92,12 +94,13 @@ class ContactsModule:
     
     async def find_contact_by_phone(self, phone_number: str) -> Optional[str]:
         """Find a contact's name by phone number"""
+        safe_phone = escape_string(phone_number)
         script = f'''
             tell application "Contacts"
                 set foundName to missing value
                 repeat with p in every person
                     repeat with ph in phones of p
-                        if value of ph contains "{phone_number}" then
+                        if value of ph contains "{safe_phone}" then
                             set foundName to name of p
                             exit repeat
                         end if

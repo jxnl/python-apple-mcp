@@ -4,8 +4,9 @@ import logging
 from typing import Dict, List, Any
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     format_applescript_value,
     parse_applescript_record,
     parse_applescript_list
@@ -38,11 +39,12 @@ class NotesModule:
     
     async def find_note(self, search_text: str) -> List[Dict[str, Any]]:
         """Find notes containing the search text"""
+        safe_text = escape_string(search_text)
         script = f'''
             tell application "Notes"
                 set matchingNotes to {{}}
                 repeat with n in every note
-                    if (body of n contains "{search_text}") or (name of n contains "{search_text}") then
+                    if (body of n contains "{safe_text}") or (name of n contains "{safe_text}") then
                         set noteData to {{name:name of n, body:body of n}}
                         copy noteData to end of matchingNotes
                     end if
@@ -96,17 +98,20 @@ class NotesModule:
             logger.error(f"Error getting all notes: {e}")
             return []
     
-    async def create_note(self, title: str, body: str, folder_name: str = 'Claude') -> Dict[str, Any]:
+    async def create_note(self, title: str, body: str, folder_name: str = 'Notes') -> Dict[str, Any]:
         """Create a new note"""
+        safe_title = escape_string(title)
+        safe_body = escape_string(body)
+        safe_folder = escape_string(folder_name)
         script = f'''
             tell application "Notes"
                 tell account "iCloud"
-                    if not (exists folder "{folder_name}") then
-                        make new folder with properties {{name:"{folder_name}"}}
+                    if not (exists folder "{safe_folder}") then
+                        make new folder with properties {{name:"{safe_folder}"}}
                     end if
-                    tell folder "{folder_name}"
-                        make new note with properties {{name:"{title}", body:"{body}"}}
-                        return "SUCCESS:Created note '{title}' in folder '{folder_name}'"
+                    tell folder "{safe_folder}"
+                        make new note with properties {{name:"{safe_title}", body:"{safe_body}"}}
+                        return "SUCCESS:Created note '{safe_title}' in folder '{safe_folder}'"
                     end tell
                 end tell
             end tell
