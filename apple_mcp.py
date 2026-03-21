@@ -25,7 +25,6 @@ mcp = FastMCP(
     "Apple MCP",
     dependencies=[
         "pydantic>=2.0.0",
-        "httpx>=0.24.0",
     ]
 )
 

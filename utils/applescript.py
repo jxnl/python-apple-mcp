@@ -341,17 +341,34 @@ def parse_value(value: str) -> Any:
     logger.debug(f"No specific type detected, returning as string: '{value}'")
     return value
 
+# Maximum input length (100KB) to prevent denial-of-service via oversized strings
+MAX_INPUT_LENGTH = 102400
+
 def escape_string(s: str) -> str:
     """
-    Escape special characters in a string for use in AppleScript
-    
+    Escape special characters in a string for use in AppleScript.
+
+    This prevents AppleScript injection by neutralising characters that
+    could break out of a quoted string context.  Inputs longer than
+    MAX_INPUT_LENGTH are truncated before escaping to guard against
+    denial-of-service attacks.
+
     Args:
         s: The string to escape
-        
+
     Returns:
-        The escaped string
+        The escaped string safe for interpolation inside AppleScript double-quotes
     """
-    return s.replace('"', '\\"').replace("'", "\\'")
+    # Remove null bytes and neutralise newlines to prevent statement injection
+    s = s.replace('\x00', '')
+    s = s.replace('\n', ' ').replace('\r', ' ')
+    encoded = s.encode('utf-8')
+    if len(encoded) > MAX_INPUT_LENGTH:
+        logger.warning(
+            f"Input string truncated from {len(encoded)} to {MAX_INPUT_LENGTH} bytes"
+        )
+        s = encoded[:MAX_INPUT_LENGTH].decode('utf-8', errors='ignore')
+    return s.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
 
 def format_applescript_value(value: Any) -> str:
     """

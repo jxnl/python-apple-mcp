@@ -5,8 +5,9 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     parse_applescript_record,
     parse_applescript_list
 )
@@ -38,11 +39,13 @@ class MessageModule:
     
     async def send_message(self, phone_number: str, message: str) -> bool:
         """Send a message to a phone number"""
+        safe_phone = escape_string(phone_number)
+        safe_message = escape_string(message)
         script = f'''
             tell application "Messages"
                 set targetService to 1st service whose service type = iMessage
-                set targetBuddy to buddy "{phone_number}" of targetService
-                send "{message}" to targetBuddy
+                set targetBuddy to buddy "{safe_phone}" of targetService
+                send "{safe_message}" to targetBuddy
                 return "SUCCESS:Message sent"
             end tell
         '''
@@ -56,10 +59,12 @@ class MessageModule:
     
     async def read_messages(self, phone_number: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Read messages from a specific contact"""
+        limit = max(1, min(int(limit), 1000))
+        safe_phone = escape_string(phone_number)
         script = f'''
             tell application "Messages"
                 set targetService to 1st service whose service type = iMessage
-                set targetBuddy to buddy "{phone_number}" of targetService
+                set targetBuddy to buddy "{safe_phone}" of targetService
                 set msgs to {{}}
                 set convMessages to messages of chat targetBuddy
                 repeat with i from 1 to {limit}
@@ -86,13 +91,16 @@ class MessageModule:
     
     async def schedule_message(self, phone_number: str, message: str, scheduled_time: str) -> Dict[str, Any]:
         """Schedule a message to be sent later"""
+        safe_phone = escape_string(phone_number)
+        safe_message = escape_string(message)
+        safe_time = escape_string(scheduled_time)
         script = f'''
             tell application "Messages"
                 set targetService to 1st service whose service type = iMessage
-                set targetBuddy to buddy "{phone_number}" of targetService
-                set scheduledTime to date "{scheduled_time}"
-                send "{message}" to targetBuddy at scheduledTime
-                return "SUCCESS:Message scheduled for {scheduled_time}"
+                set targetBuddy to buddy "{safe_phone}" of targetService
+                set scheduledTime to date "{safe_time}"
+                send "{safe_message}" to targetBuddy at scheduledTime
+                return "SUCCESS:Message scheduled for {safe_time}"
             end tell
         '''
         
@@ -119,6 +127,7 @@ class MessageModule:
     
     async def get_unread_messages(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get unread messages"""
+        limit = max(1, min(int(limit), 1000))
         script = f'''
             tell application "Messages"
                 set unreadMsgs to {{}}

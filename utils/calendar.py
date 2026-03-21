@@ -5,8 +5,9 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
 from .applescript import (
-    run_applescript_async, 
-    AppleScriptError, 
+    run_applescript_async,
+    AppleScriptError,
+    escape_string,
     format_applescript_value,
     parse_applescript_record,
     parse_applescript_list
@@ -43,13 +44,17 @@ class CalendarModule:
             from_date = datetime.now().strftime("%Y-%m-%d")
         if not to_date:
             to_date = (datetime.now().replace(hour=23, minute=59, second=59) + timedelta(days=7)).strftime("%Y-%m-%d")
-        
+
+        safe_text = escape_string(search_text)
+        safe_from = escape_string(from_date)
+        safe_to = escape_string(to_date)
+
         script = f'''
             tell application "Calendar"
                 set matchingEvents to {{}}
-                set searchStart to date "{from_date}"
-                set searchEnd to date "{to_date}"
-                set foundEvents to every event whose summary contains "{search_text}" and start date is greater than or equal to searchStart and start date is less than or equal to searchEnd
+                set searchStart to date "{safe_from}"
+                set searchEnd to date "{safe_to}"
+                set foundEvents to every event whose summary contains "{safe_text}" and start date is greater than or equal to searchStart and start date is less than or equal to searchEnd
                 repeat with e in foundEvents
                     set end of matchingEvents to {{
                         title:summary of e,
@@ -78,10 +83,11 @@ class CalendarModule:
     
     async def open_event(self, event_id: str) -> Dict[str, Any]:
         """Open a specific calendar event"""
+        safe_id = escape_string(event_id)
         script = f'''
             tell application "Calendar"
                 try
-                    set theEvent to first event whose uid is "{event_id}"
+                    set theEvent to first event whose uid is "{safe_id}"
                     show theEvent
                     return "Opened event: " & summary of theEvent
                 on error
@@ -109,12 +115,15 @@ class CalendarModule:
             from_date = datetime.now().strftime("%Y-%m-%d")
         if not to_date:
             to_date = (datetime.now().replace(hour=23, minute=59, second=59) + timedelta(days=7)).strftime("%Y-%m-%d")
-        
+
+        safe_from = escape_string(from_date)
+        safe_to = escape_string(to_date)
+
         script = f'''
             tell application "Calendar"
                 set allEvents to {{}}
-                set searchStart to date "{from_date}"
-                set searchEnd to date "{to_date}"
+                set searchStart to date "{safe_from}"
+                set searchEnd to date "{safe_to}"
                 set foundEvents to every event whose start date is greater than or equal to searchStart and start date is less than or equal to searchEnd
                 repeat with e in foundEvents
                     set end of allEvents to {{
@@ -147,14 +156,18 @@ class CalendarModule:
         # Using a simpler approach for Calendar that is more likely to work
         formatted_start = start_date.strftime("%Y-%m-%d %H:%M:%S")
         formatted_end = end_date.strftime("%Y-%m-%d %H:%M:%S")
-        
+
+        safe_title = escape_string(title)
+        safe_start = escape_string(formatted_start)
+        safe_end = escape_string(formatted_end)
+
         # Create a simpler script that just adds an event to the default calendar
         script = f'''
             tell application "Calendar"
                 try
                     tell application "Calendar"
                         tell (first calendar whose name is "Calendar")
-                            make new event at end with properties {{summary:"{title}", start date:(date "{formatted_start}"), end date:(date "{formatted_end}")}}
+                            make new event at end with properties {{summary:"{safe_title}", start date:(date "{safe_start}"), end date:(date "{safe_end}")}}
                             return "SUCCESS:Event created successfully"
                         end tell
                     end tell

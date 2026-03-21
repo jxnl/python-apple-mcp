@@ -5,8 +5,9 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     format_applescript_value,
     parse_applescript_record,
     parse_applescript_list
@@ -91,12 +92,13 @@ class RemindersModule:
     
     async def search_reminders(self, search_text: str) -> List[Dict[str, Any]]:
         """Search for reminders matching text"""
+        safe_text = escape_string(search_text)
         script = f'''
             tell application "Reminders"
                 try
                     set matchingReminders to {{}}
                     repeat with r in every reminder
-                        if name of r contains "{search_text}" or (body of r is not missing value and body of r contains "{search_text}") then
+                        if name of r contains "{safe_text}" or (body of r is not missing value and body of r contains "{safe_text}") then
                             set reminderData to {{name:name of r, notes:body of r, due_date:due date of r, completed:completed of r, list:name of container of r}}
                             copy reminderData to end of matchingReminders
                         end if
@@ -128,11 +130,12 @@ class RemindersModule:
     
     async def open_reminder(self, search_text: str) -> Dict[str, Any]:
         """Open a reminder matching text"""
+        safe_text = escape_string(search_text)
         script = f'''
             tell application "Reminders"
                 set foundReminder to missing value
                 repeat with r in every reminder
-                    if name of r contains "{search_text}" then
+                    if name of r contains "{safe_text}" then
                         set foundReminder to r
                         exit repeat
                     end if
@@ -142,7 +145,7 @@ class RemindersModule:
                     show foundReminder
                     return "SUCCESS:Opened reminder: " & name of foundReminder
                 else
-                    return "ERROR:No reminder found matching '{search_text}'"
+                    return "ERROR:No reminder found matching '{safe_text}'"
                 end if
             end tell
         '''
@@ -166,27 +169,29 @@ class RemindersModule:
     
     async def create_reminder(self, name: str, list_name: str = None, notes: str = None, due_date: datetime = None) -> Dict[str, Any]:
         """Create a new reminder"""
+        safe_name = escape_string(name)
+
         # Format date for AppleScript if provided
         due_date_str = due_date.strftime("%Y-%m-%d %H:%M:%S") if due_date else None
-        
+
         # Build the properties string
-        properties = [f'name:"{name}"']
+        properties = [f'name:"{safe_name}"']
         if notes:
-            properties.append(f'body:"{notes}"')
+            properties.append(f'body:"{escape_string(notes)}"')
         if due_date_str:
-            properties.append(f'due date:date "{due_date_str}"')
-            
+            properties.append(f'due date:date "{escape_string(due_date_str)}"')
+
         properties_str = ", ".join(properties)
-        
+
         # Use default "Reminders" list if none specified
-        list_to_use = list_name or 'Reminders'
-        
+        safe_list = escape_string(list_name) if list_name else 'Reminders'
+
         script = f'''
             tell application "Reminders"
                 try
-                    tell list "{list_to_use}"
+                    tell list "{safe_list}"
                         make new reminder with properties {{{properties_str}}}
-                        return "SUCCESS:Reminder created successfully in list '{list_to_use}'"
+                        return "SUCCESS:Reminder created successfully in list '{safe_list}'"
                     end tell
                 on error errMsg
                     return "ERROR:" & errMsg
@@ -208,16 +213,33 @@ class RemindersModule:
                 "message": str(e)
             }
     
+    # Whitelist of allowed Reminders property names to prevent AppleScript injection
+    ALLOWED_REMINDER_PROPS = frozenset({
+        "name", "id", "body", "due date", "completed",
+        "completion date", "creation date", "priority",
+    })
+
     async def get_reminders_from_list_by_id(self, list_id: str, props: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get reminders from a specific list by ID"""
         if not props:
-            props = ["name", "id", "notes", "due_date", "completed"]
-            
+            props = ["name", "id", "body", "due date", "completed"]
+
+        # Filter props to only include whitelisted property names
+        sanitized_props = [p for p in props if p in self.ALLOWED_REMINDER_PROPS]
+        if len(sanitized_props) != len(props):
+            rejected = set(props) - self.ALLOWED_REMINDER_PROPS
+            logger.warning(f"Rejected non-whitelisted reminder props: {rejected}")
+        if not sanitized_props:
+            logger.error("No valid reminder properties requested after filtering")
+            return []
+        props = sanitized_props
+
         props_str = ", ".join(props)
-        
+        safe_list_id = escape_string(list_id)
+
         script = f'''
             tell application "Reminders"
-                set theList to list id "{list_id}"
+                set theList to list id "{safe_list_id}"
                 set listReminders to {{}}
                 repeat with r in reminders in theList
                     set reminderProps to {{}}

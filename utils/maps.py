@@ -11,8 +11,9 @@ import uuid
 from typing import Dict, List, Any, Optional, Tuple, Union
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     format_applescript_value,
     parse_applescript_record,
     parse_applescript_list
@@ -50,11 +51,12 @@ class MapsModule:
     
     async def search_locations(self, query: str) -> Dict[str, Any]:
         """Search for locations in Apple Maps"""
+        safe_query = escape_string(query)
         script = f'''
             tell application "Maps"
                 try
                     activate
-                    search "{query}"
+                    search "{safe_query}"
                     delay 1
                     set locations to {{}}
                     set searchResults to selected location
@@ -116,33 +118,36 @@ class MapsModule:
                 }
             
             logger.info(f"Saving location: {name} at {address}")
-            
+
+            safe_name = escape_string(name)
+            safe_address = escape_string(address)
+
             script = f'''
                 tell application "Maps"
                     activate
-                    
+
                     -- First search for the location
-                    search "{address}"
-                    
+                    search "{safe_address}"
+
                     -- Wait for search to complete
                     delay 1
-                    
+
                     -- Try to get the current location
                     set foundLocation to selected location
-                    
+
                     if foundLocation is not missing value then
                         -- Add to favorites
-                        add to favorites foundLocation with properties {{name:"{name}"}}
+                        add to favorites foundLocation with properties {{name:"{safe_name}"}}
                         
                         -- Return success with location details
                         set locationAddress to formatted address of foundLocation
                         if locationAddress is missing value then
-                            set locationAddress to "{address}"
+                            set locationAddress to "{safe_address}"
                         end if
                         
-                        return "SUCCESS:Added \\"" & "{name}" & "\\" to favorites"
+                        return "SUCCESS:Added \\"" & "{safe_name}" & "\\" to favorites"
                     else
-                        return "ERROR:Could not find location for \\"" & "{address}" & "\\""
+                        return "ERROR:Could not find location for \\"" & "{safe_address}" & "\\""
                     end if
                 end tell
             '''
@@ -186,15 +191,19 @@ class MapsModule:
                 }
             
             logger.info(f"Getting directions from {from_address} to {to_address} by {transport_type}")
-            
+
+            safe_from = escape_string(from_address)
+            safe_to = escape_string(to_address)
+            safe_transport = escape_string(transport_type)
+
             script = f'''
                 tell application "Maps"
                     activate
-                    
+
                     -- Ask for directions
-                    get directions from "{from_address}" to "{to_address}" by "{transport_type}"
-                    
-                    return "SUCCESS:Displaying directions from \\"" & "{from_address}" & "\\" to \\"" & "{to_address}" & "\\" by {transport_type}"
+                    get directions from "{safe_from}" to "{safe_to}" by "{safe_transport}"
+
+                    return "SUCCESS:Displaying directions from \\"" & "{safe_from}" & "\\" to \\"" & "{safe_to}" & "\\" by {safe_transport}"
                 end tell
             '''
             
@@ -236,25 +245,28 @@ class MapsModule:
                 }
             
             logger.info(f"Creating pin at {address} with name {name}")
-            
+
+            safe_name = escape_string(name)
+            safe_address = escape_string(address)
+
             script = f'''
                 tell application "Maps"
                     activate
-                    
+
                     -- Search for the location
-                    search "{address}"
-                    
+                    search "{safe_address}"
+
                     -- Wait for search to complete
                     delay 1
-                    
+
                     -- Try to get the current location
                     set foundLocation to selected location
-                    
+
                     if foundLocation is not missing value then
                         -- Drop pin (note: this is a user interface action)
-                        return "SUCCESS:Location found. Right-click and select 'Drop Pin' to create a pin named \\"" & "{name}" & "\\""
+                        return "SUCCESS:Location found. Right-click and select 'Drop Pin' to create a pin named \\"" & "{safe_name}" & "\\""
                     else
-                        return "ERROR:Could not find location for \\"" & "{address}" & "\\""
+                        return "ERROR:Could not find location for \\"" & "{safe_address}" & "\\""
                     end if
                 end tell
             '''
@@ -334,18 +346,21 @@ class MapsModule:
                 }
             
             logger.info(f"Adding location {location_address} to guide {guide_name}")
-            
+
+            safe_address = escape_string(location_address)
+            safe_guide = escape_string(guide_name)
+
             script = f'''
                 tell application "Maps"
                     activate
-                    
+
                     -- Search for the location
-                    search "{location_address}"
-                    
+                    search "{safe_address}"
+
                     -- Wait for search to complete
                     delay 1
-                    
-                    return "SUCCESS:Location found. Click the location pin, then '...' button, and select 'Add to Guide' to add to \\"" & "{guide_name}" & "\\""
+
+                    return "SUCCESS:Location found. Click the location pin, then '...' button, and select 'Add to Guide' to add to \\"" & "{safe_guide}" & "\\""
                 end tell
             '''
             
@@ -381,15 +396,17 @@ class MapsModule:
                 }
             
             logger.info(f"Creating new guide: {guide_name}")
-            
+
+            safe_guide = escape_string(guide_name)
+
             script = f'''
                 tell application "Maps"
                     activate
-                    
+
                     -- Open guides view
                     open location "maps://?show=guides"
-                    
-                    return "SUCCESS:Opened guides view. Click '+' button and select 'New Guide' to create \\"" & "{guide_name}" & "\\""
+
+                    return "SUCCESS:Opened guides view. Click '+' button and select 'New Guide' to create \\"" & "{safe_guide}" & "\\""
                 end tell
             '''
             

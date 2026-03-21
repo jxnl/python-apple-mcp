@@ -4,8 +4,9 @@ import logging
 from typing import Dict, List, Any, Optional
 
 from .applescript import (
-    run_applescript_async, 
+    run_applescript_async,
     AppleScriptError,
+    escape_string,
     format_applescript_value,
     parse_applescript_record,
     parse_applescript_list
@@ -38,6 +39,7 @@ class MailModule:
     
     async def get_unread_mails(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get unread emails"""
+        limit = max(1, min(int(limit), 1000))
         script = f'''
             tell application "Mail"
                 set unreadMails to {{}}
@@ -67,12 +69,14 @@ class MailModule:
     
     async def get_unread_mails_for_account(self, account: str, mailbox: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
         """Get unread emails for a specific account"""
-        mailbox_part = f'mailbox "{mailbox}"' if mailbox else "inbox"
-        
+        limit = max(1, min(int(limit), 1000))
+        safe_account = escape_string(account)
+        mailbox_part = f'mailbox "{escape_string(mailbox)}"' if mailbox else "inbox"
+
         script = f'''
             tell application "Mail"
                 set unreadMails to {{}}
-                set theAccount to account "{account}"
+                set theAccount to account "{safe_account}"
                 set msgs to (messages of {mailbox_part} of theAccount whose read status is false)
                 repeat with i from 1 to {limit}
                     if i > count of msgs then exit repeat
@@ -100,10 +104,12 @@ class MailModule:
     
     async def search_mails(self, search_term: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Search emails"""
+        limit = max(1, min(int(limit), 1000))
+        safe_term = escape_string(search_term)
         script = f'''
             tell application "Mail"
                 set searchResults to {{}}
-                set msgs to messages of inbox whose subject contains "{search_term}" or content contains "{search_term}"
+                set msgs to messages of inbox whose subject contains "{safe_term}" or content contains "{safe_term}"
                 repeat with i from 1 to {limit}
                     if i > count of msgs then exit repeat
                     set m to item i of msgs
@@ -131,16 +137,20 @@ class MailModule:
     async def send_mail(self, to: str, subject: str, body: str, cc: Optional[str] = None, bcc: Optional[str] = None) -> Dict:
         """Send an email"""
         try:
+            safe_to = escape_string(to)
+            safe_subject = escape_string(subject)
+            safe_body = escape_string(body)
+
             # Build the recipients part of the script
-            recipients = f'make new to recipient with properties {{address:"{to}"}}'
+            recipients = f'make new to recipient with properties {{address:"{safe_to}"}}'
             if cc:
-                recipients += f'\nmake new cc recipient with properties {{address:"{cc}"}}'
+                recipients += f'\nmake new cc recipient with properties {{address:"{escape_string(cc)}"}}'
             if bcc:
-                recipients += f'\nmake new bcc recipient with properties {{address:"{bcc}"}}'
+                recipients += f'\nmake new bcc recipient with properties {{address:"{escape_string(bcc)}"}}'
 
             script = f'''
                 tell application "Mail"
-                    set newMessage to make new outgoing message with properties {{subject:"{subject}", content:"{body}", visible:true}}
+                    set newMessage to make new outgoing message with properties {{subject:"{safe_subject}", content:"{safe_body}", visible:true}}
                     tell newMessage
                         {recipients}
                         send
@@ -156,10 +166,11 @@ class MailModule:
     
     async def get_mailboxes_for_account(self, account: str) -> List[str]:
         """Get mailboxes for a specific account"""
+        safe_account = escape_string(account)
         script = f'''
             tell application "Mail"
                 set theMailboxes to {{}}
-                set theAccount to account "{account}"
+                set theAccount to account "{safe_account}"
                 repeat with m in mailboxes of theAccount
                     set end of theMailboxes to name of m
                 end repeat
